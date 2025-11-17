@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import {
-  getAllUsers,
-  getChatRooms,
-  initiateSocketConnection,
-} from "../../services/ChatService";
+import { getAllUsers, getChatRooms } from "../../services/ChatService";
 import { useAuth } from "../../contexts/AuthContext";
 
 import ChatRoom from "../chat/ChatRoom";
@@ -26,30 +22,18 @@ export default function ChatLayout() {
 
   const socket = useRef();
 
-  const { currentUser } = useAuth();
+  const { currentUser, agentProfile } = useAuth();
 
-  useEffect(() => {
-    const getSocket = async () => {
-      const res = await initiateSocketConnection();
-      socket.current = res;
-      socket.current.emit("addUser", currentUser.uid);
-      socket.current.on("getUsers", (users) => {
-        const userId = users.map((u) => u[0]);
-        setonlineUsersId(userId);
-      });
-    };
-
-    getSocket();
-  }, [currentUser.uid]);
+  // Socket.io removed; online presence not implemented. Keep empty list.
 
   useEffect(() => {
     const fetchData = async () => {
-      const res = await getChatRooms(currentUser.uid);
+      const res = await getChatRooms(currentUser?.id);
       setChatRooms(res);
     };
 
-    fetchData();
-  }, [currentUser.uid]);
+    if (currentUser) fetchData();
+  }, [currentUser]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,7 +77,7 @@ export default function ChatLayout() {
       chatRooms.forEach((chatRoom) => {
         // Check if searched user is a contact or not.
         const isUserContact = chatRoom.members.some(
-          (e) => e !== currentUser.uid && searchedUsersId.includes(e)
+          (e) => e !== "self" && searchedUsersId.includes(e)
         );
         setIsContact(isUserContact);
 
@@ -110,6 +94,14 @@ export default function ChatLayout() {
     <div className="container mx-auto">
       <div className="min-w-full bg-white border-x border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700 rounded lg:grid lg:grid-cols-3">
         <div className="bg-white border-r border-gray-200 dark:bg-gray-900 dark:border-gray-700 lg:col-span-1">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex flex-col">
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+              {agentProfile?.name || currentUser?.email || "Agent"}
+            </span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {agentProfile?.role || "agent"}
+            </span>
+          </div>
           <SearchUsers handleSearch={handleSearch} />
 
           <AllUsers

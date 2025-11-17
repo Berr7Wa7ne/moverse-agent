@@ -1,12 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  updateProfile,
-} from "firebase/auth";
-
-import auth from "../config/firebase";
+import { supabase } from "../lib/supabaseClient";
 
 const AuthContext = createContext();
 
@@ -18,34 +11,97 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [agentProfile, setAgentProfile] = useState();
 
-  function register(email, password) {
-    return createUserWithEmailAndPassword(auth, email, password);
+  async function register(email, password) {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+
+    // Ensure there is a matching agent profile row
+    const defaultName = email.split("@")[0] || "Agent";
+    const { error: agentError } = await supabase
+      .from("agents")
+      .upsert(
+        {
+          email,
+          name: defaultName,
+          role: "agent",
+        },
+        { onConflict: "email" }
+      );
+
+    if (agentError) {
+      console.error("[auth] Failed to upsert agent profile", agentError);
+    }
+
+    return data;
   }
 
-  function login(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+  async function login(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
   }
 
-  function logout() {
-    return signOut(auth);
+  async function logout() {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   }
 
-  function updateUserProfile(user, profile) {
-    return updateProfile(user, profile);
+  function updateUserProfile() {
+    return Promise.resolve();
   }
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user ?? null;
       setCurrentUser(user);
+
+      if (user?.email) {
+        const { data: agent, error: agentError } = await supabase
+          .from("agents")
+          .select("id, name, email, role")
+          .eq("email", user.email)
+          .maybeSingle();
+        if (!agentError) {
+          setAgentProfile(agent || null);
+        }
+      } else {
+        setAgentProfile(null);
+      }
       setLoading(false);
+    };
+    init();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null;
+      setCurrentUser(user);
+
+      if (user?.email) {
+        supabase
+          .from("agents")
+          .select("id, name, email, role")
+          .eq("email", user.email)
+          .maybeSingle()
+          .then(({ data: agent, error: agentError }) => {
+            if (!agentError) {
+              setAgentProfile(agent || null);
+            }
+          });
+      } else {
+        setAgentProfile(null);
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   const value = {
     currentUser,
+    agentProfile,
     error,
     setError,
     login,

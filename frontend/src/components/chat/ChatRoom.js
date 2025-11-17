@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "../../lib/supabaseClient";
 
 import { getMessagesOfChatRoom, sendMessage } from "../../services/ChatService";
 
@@ -6,9 +7,8 @@ import Message from "./Message";
 import Contact from "./Contact";
 import ChatForm from "./ChatForm";
 
-export default function ChatRoom({ currentChat, currentUser, socket }) {
+export default function ChatRoom({ currentChat }) {
   const [messages, setMessages] = useState([]);
-  const [incomingMessage, setIncomingMessage] = useState(null);
 
   const scrollRef = useRef();
 
@@ -22,62 +22,63 @@ export default function ChatRoom({ currentChat, currentUser, socket }) {
   }, [currentChat._id]);
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    socket.current?.on("getMessage", (data) => {
-      setIncomingMessage({
-        senderId: data.senderId,
-        message: data.message,
-      });
-    });
-  }, [socket]);
+    // Subscribe to new messages for this conversation
+    const channel = supabase
+      .channel("chat-messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${currentChat._id}`,
+        },
+        (payload) => {
+          const m = payload.new;
+          setMessages((prev) => [
+            ...prev,
+            {
+              sender: m.direction === "outgoing" ? "self" : "other",
+              message: m.message,
+              createdAt: m.sent_at,
+            },
+          ]);
+        }
+      )
+      .subscribe();
 
-  useEffect(() => {
-    incomingMessage && setMessages((prev) => [...prev, incomingMessage]);
-  }, [incomingMessage]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentChat._id]);
 
   const handleFormSubmit = async (message) => {
-    const receiverId = currentChat.members.find(
-      (member) => member !== currentUser.uid
-    );
-
-    socket.current.emit("sendMessage", {
-      senderId: currentUser.uid,
-      receiverId: receiverId,
-      message: message,
-    });
-
-    const messageBody = {
-      chatRoomId: currentChat._id,
-      sender: currentUser.uid,
-      message: message,
-    };
-    const res = await sendMessage(messageBody);
-    setMessages([...messages, res]);
+    const res = await sendMessage({ chatRoomId: currentChat._id, message });
+    setMessages((prev) => [...prev, res]);
   };
 
   return (
     <div className="lg:col-span-2 lg:block">
       <div className="w-full">
         <div className="p-3 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <Contact chatRoom={currentChat} currentUser={currentUser} />
+          <Contact chatRoom={currentChat} />
         </div>
 
         <div className="relative w-full p-6 overflow-y-auto h-[30rem] bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700">
           <ul className="space-y-2">
             {messages.map((message, index) => (
               <div key={index} ref={scrollRef}>
-                <Message message={message} self={currentUser.uid} />
+                <Message message={message} self={"self"} />
               </div>
             ))}
           </ul>
         </div>
 
-        <ChatForm handleFormSubmit={handleFormSubmit} />
+        <ChatForm handleFormSubmit={handleFormSubmit} chatRoomId={currentChat._id} />
       </div>
     </div>
   );

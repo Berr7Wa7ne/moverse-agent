@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { uploadMedia, sendMediaMessage } from "../../services/ChatService";
 
 import { PaperAirplaneIcon } from "@heroicons/react/solid";
 import { EmojiHappyIcon } from "@heroicons/react/outline";
@@ -7,6 +8,7 @@ import Picker from "emoji-picker-react";
 export default function ChatForm(props) {
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const scrollRef = useRef();
 
@@ -26,6 +28,25 @@ export default function ChatForm(props) {
     setMessage("");
   };
 
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      const res = await uploadMedia(file, "uploads");
+      if (res?.media_url) {
+        await sendMediaMessage({ chatRoomId: props.currentChatId || props.chatRoomId, mediaUrl: res.media_url, caption: message || undefined });
+      }
+      setMessage("");
+    } catch (err) {
+      console.error("File upload failed", err);
+    } finally {
+      setUploading(false);
+      // reset input value to allow same file re-select
+      e.target.value = "";
+    }
+  };
+
   return (
     <div ref={scrollRef}>
       {showEmojiPicker && (
@@ -33,6 +54,10 @@ export default function ChatForm(props) {
       )}
       <form onSubmit={handleFormSubmit}>
         <div className="flex items-center justify-between w-full p-3 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          <label className="mr-2 cursor-pointer">
+            <input type="file" className="hidden" onChange={handleFileChange} disabled={uploading} />
+            <span className="text-sm text-blue-600 dark:text-blue-500">{uploading ? "Uploading..." : "Attach"}</span>
+          </label>
           <button
             onClick={(e) => {
               e.preventDefault();

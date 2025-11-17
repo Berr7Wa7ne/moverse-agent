@@ -1,126 +1,154 @@
 import axios from "axios";
-import auth from "../config/firebase";
-import { io } from "socket.io-client";
+import { supabase } from "../lib/supabaseClient";
 
-const baseURL = "http://localhost:3001/api";
-
-const getUserToken = async () => {
-  const user = auth.currentUser;
-  const token = user && (await user.getIdToken());
-  return token;
-};
+const AGENCY_BASE_URL = process.env.REACT_APP_AGENCY_API_URL || "https://moverse-portfolio.vercel.app";
+const AGENT_APP_BASE_URL = process.env.REACT_APP_AGENT_APP_API_URL || ""; // empty -> same origin
 
 export const initiateSocketConnection = async () => {
-  const token = await getUserToken();
-
-  const socket = io("http://localhost:3001", {
-    auth: {
-      token,
-    },
-  });
-
-  return socket;
-};
-
-const createHeader = async () => {
-  const token = await getUserToken();
-
-  const payloadHeader = {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+  // Socket.io removed. Provide a minimal stub to keep legacy callers from crashing.
+  const stub = {
+    emit: () => {},
+    on: () => {},
   };
-  return payloadHeader;
+  return stub;
 };
 
+// Upload media to Agent App, returns { media_url }
+export const uploadMedia = async (file, folder = "uploads") => {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("folder", folder);
+
+  const url = `${AGENT_APP_BASE_URL}/api/uploadMedia`;
+  const res = await axios.post(url, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data;
+};
+
+// Send media message by sending the media URL via Agency sendMessage (text body contains link or caption + link)
+export const sendMediaMessage = async ({ chatRoomId, mediaUrl, caption }) => {
+  const text = caption ? `${caption}\n${mediaUrl}` : mediaUrl;
+  return sendMessage({ chatRoomId, message: text });
+};
+
+// Map Supabase contact row -> legacy user shape consumed by UI components
+const mapContactToUser = (c) => ({
+  uid: c?.id,
+  email: undefined,
+  displayName: c?.profile_name || c?.wa_id,
+  photoURL: undefined,
+});
+
+// Legacy: list of users; now sourced from contacts
 export const getAllUsers = async () => {
-  const header = await createHeader();
-
-  try {
-    const res = await axios.get(`${baseURL}/user`, header);
-    return res.data;
-  } catch (e) {
-    console.error(e);
+  const { data, error } = await supabase
+    .from("contacts")
+    .select("id, wa_id, profile_name");
+  if (error) {
+    console.error(error);
+    return [];
   }
+  return (data || []).map(mapContactToUser);
 };
 
+// Legacy: get user by id; now contact by id
 export const getUser = async (userId) => {
-  const header = await createHeader();
-
-  try {
-    const res = await axios.get(`${baseURL}/user/${userId}`, header);
-    return res.data;
-  } catch (e) {
-    console.error(e);
+  const { data, error } = await supabase
+    .from("contacts")
+    .select("id, wa_id, profile_name")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error(error);
+    return null;
   }
+  return mapContactToUser(data);
 };
 
-export const getUsers = async (users) => {
-  const header = await createHeader();
+// Legacy: chat rooms list; now conversations joined to contacts, mapped to legacy shape
+export const getChatRooms = async (_userId) => {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("id, contact_id, status, unread_count, last_message_at, contacts:contact_id(id, wa_id, profile_name)")
+    .order("last_message_at", { ascending: false });
 
-  try {
-    const res = await axios.get(`${baseURL}/user/users`, users, header);
-    return res.data;
-  } catch (e) {
-    console.error(e);
+  console.log("[getChatRooms] data", data);
+  console.log("[getChatRooms] error", error);
+
+  if (error) {
+    console.error(error);
+    return [];
   }
+
+  return (data || []).map((row) => ({
+    _id: row.id,
+    members: ["self", row.contact_id],
+    status: row.status,
+    unread_count: row.unread_count,
+    last_message_at: row.last_message_at,
+    contact: row.contacts,
+  }));
 };
 
-export const getChatRooms = async (userId) => {
-  const header = await createHeader();
-
-  try {
-    const res = await axios.get(`${baseURL}/room/${userId}`, header);
-    return res.data;
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-export const getChatRoomOfUsers = async (firstUserId, secondUserId) => {
-  const header = await createHeader();
-
-  try {
-    const res = await axios.get(
-      `${baseURL}/room/${firstUserId}/${secondUserId}`,
-      header
-    );
-    return res.data;
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-export const createChatRoom = async (members) => {
-  const header = await createHeader();
-
-  try {
-    const res = await axios.post(`${baseURL}/room`, members, header);
-    return res.data;
-  } catch (e) {
-    console.error(e);
-  }
-};
-
+// Legacy: get messages of chat room; now messages of conversation
 export const getMessagesOfChatRoom = async (chatRoomId) => {
-  const header = await createHeader();
+  // Fetch messages
+  const { data: messages, error } = await supabase
+    .from("messages")
+    .select("id, conversation_id, direction, message, sent_at")
+    .eq("conversation_id", chatRoomId)
+    .order("sent_at", { ascending: true });
 
-  try {
-    const res = await axios.get(`${baseURL}/message/${chatRoomId}`, header);
-    return res.data;
-  } catch (e) {
-    console.error(e);
+  if (error) {
+    console.error(error);
+    return [];
   }
+
+  // Map to legacy message shape: { sender, message, createdAt }
+  return (messages || []).map((m) => ({
+    sender: m.direction === "outgoing" ? "self" : "other",
+    message: m.message,
+    createdAt: m.sent_at,
+  }));
 };
 
-export const sendMessage = async (messageBody) => {
-  const header = await createHeader();
+// Legacy helper retained for API parity; unused in new flow
+export const getChatRoomOfUsers = async () => {
+  return [];
+};
 
-  try {
-    const res = await axios.post(`${baseURL}/message`, messageBody, header);
-    return res.data;
-  } catch (e) {
-    console.error(e);
+export const createChatRoom = async () => {
+  return null;
+};
+
+// Send text message via Agency App; derive recipient from conversation contact
+export const sendMessage = async ({ chatRoomId, message }) => {
+  // Lookup conversation -> contact -> phone_number
+  const { data: conv, error: convErr } = await supabase
+    .from("conversations")
+    .select("id, contact_id, contacts:contact_id(phone_number)")
+    .eq("id", chatRoomId)
+    .maybeSingle();
+
+  if (convErr || !conv) {
+    console.error(convErr || new Error("Conversation not found"));
+    throw convErr || new Error("Conversation not found");
   }
+
+  const to = conv.contacts?.phone_number || "";
+  if (!to) throw new Error("Contact phone number is missing");
+
+  // Call Agent backend proxy, which forwards to Agency /api/sendMessage
+  const url = `${AGENT_APP_BASE_URL}/api/sendMessage`;
+  const payload = { to, message };
+
+  const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
+
+  // Optimistically return message in legacy shape
+  return {
+    sender: "self",
+    message,
+    createdAt: new Date().toISOString(),
+  };
 };

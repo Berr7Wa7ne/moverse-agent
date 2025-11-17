@@ -22,18 +22,18 @@ export default function AllUsers({
 
   useEffect(() => {
     const Ids = chatRooms.map((chatRoom) => {
-      return chatRoom.members.find((member) => member !== currentUser.uid);
+      return chatRoom.members.find((member) => member !== "self");
     });
     setContactIds(Ids);
-  }, [chatRooms, currentUser.uid]);
+  }, [chatRooms]);
 
   useEffect(() => {
     setNonContacts(
       users.filter(
-        (f) => f.uid !== currentUser.uid && !contactIds.includes(f.uid)
+        (f) => f.uid !== currentUser?.id && !contactIds.includes(f.uid)
       )
     );
-  }, [contactIds, users, currentUser.uid]);
+  }, [contactIds, users, currentUser]);
 
   const changeCurrentChat = (index, chat) => {
     setSelectedChat(index);
@@ -42,7 +42,7 @@ export default function AllUsers({
 
   const handleNewChatRoom = async (user) => {
     const members = {
-      senderId: currentUser.uid,
+      senderId: currentUser?.id,
       receiverId: user.uid,
     };
     const res = await createChatRoom(members);
