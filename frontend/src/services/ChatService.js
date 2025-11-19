@@ -37,14 +37,14 @@ const mapContactToUser = (c) => ({
   uid: c?.id,
   email: undefined,
   displayName: c?.profile_name || c?.wa_id,
-  photoURL: undefined,
+  photoURL: c?.profile_picture_url || undefined,
 });
 
 // Legacy: list of users; now sourced from contacts
 export const getAllUsers = async () => {
   const { data, error } = await supabase
     .from("contacts")
-    .select("id, wa_id, profile_name");
+    .select("id, wa_id, profile_name, profile_picture_url");
   if (error) {
     console.error(error);
     return [];
@@ -56,7 +56,7 @@ export const getAllUsers = async () => {
 export const getUser = async (userId) => {
   const { data, error } = await supabase
     .from("contacts")
-    .select("id, wa_id, profile_name")
+    .select("id, wa_id, profile_name, profile_picture_url")
     .eq("id", userId)
     .maybeSingle();
   if (error) {
@@ -70,7 +70,7 @@ export const getUser = async (userId) => {
 export const getChatRooms = async (_userId) => {
   const { data, error } = await supabase
     .from("conversations")
-    .select("id, contact_id, status, unread_count, last_message_at, contacts:contact_id(id, wa_id, profile_name)")
+    .select("id, contact_id, status, unread_count, last_message_at, contacts:contact_id(id, wa_id, profile_name, profile_picture_url)")
     .order("last_message_at", { ascending: false });
 
   console.log("[getChatRooms] data", data);

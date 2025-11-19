@@ -1,4 +1,4 @@
-import { LogoutIcon } from "@heroicons/react/outline";
+import { LogoutIcon, UserCircleIcon } from "@heroicons/react/outline";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -36,11 +36,17 @@ export default function Header() {
                   to="/profile"
                   className="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-full text-sm p-2.5"
                 >
-                  <img
-                    className="h-8 w-8 rounded-full"
-                    src={currentUser.photoURL}
-                    alt=""
-                  />
+                  {currentUser.photoURL ? (
+                    <img
+                      className="h-8 w-8 rounded-full object-cover"
+                      src={currentUser.photoURL}
+                      alt={currentUser.displayName || "Profile"}
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-200">
+                      <UserCircleIcon className="h-6 w-6" aria-hidden="true" />
+                    </div>
+                  )}
                 </Link>
               </>
             )}

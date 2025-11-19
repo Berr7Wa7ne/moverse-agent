@@ -31,10 +31,24 @@ export default function Contact({ chatRoom, onlineUsersId }) {
   const status = chatRoom.status || "open";
   const unread = chatRoom.unread_count || 0;
 
+  const lastMessageAt = chatRoom.last_message_at;
+  let isOnline = false;
+  if (lastMessageAt) {
+    const last = new Date(lastMessageAt).getTime();
+    const diffMs = Date.now() - last;
+    if (!Number.isNaN(last)) {
+      isOnline = diffMs < 5 * 60 * 1000; // 5 minutes
+    }
+  }
+
   return (
     <div className="flex w-full items-center justify-between">
       <div className="flex-1 min-w-0">
-        <UserLayout user={contact} onlineUsersId={onlineUsersId} />
+        <UserLayout
+          user={contact}
+          onlineUsersId={onlineUsersId}
+          isOnlineOverride={isOnline}
+        />
       </div>
       <div className="flex flex-col items-end ml-2">
         <span
