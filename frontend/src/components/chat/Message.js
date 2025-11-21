@@ -17,14 +17,14 @@ export default function Message({ message, self }) {
           <div
             className={classNames(
               self !== message.sender
-                ? "text-gray-700 dark:text-gray-400 bg-white border border-gray-200 shadow-md dark:bg-gray-900 dark:border-gray-700"
+                ? "text-gray-700 dark:text-gray-300 bg-blue-50 border border-blue-100 shadow-md dark:bg-gray-900 dark:border-gray-700"
                 : "bg-blue-600 dark:bg-blue-500 text-white",
               "relative max-w-xl px-4 py-2 rounded-lg shadow"
             )}
           >
             <span className="block font-normal ">{message.message}</span>
           </div>
-          <span className="block text-sm text-gray-700 dark:text-gray-400">
+          <span className="block text-sm text-gray-500 dark:text-gray-400">
             {format(message.createdAt)}
           </span>
         </div>

@@ -92,10 +92,10 @@ export default function ChatLayout() {
 
   return (
     <div className="container mx-auto">
-      <div className="min-w-full bg-white border-x border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700 rounded lg:grid lg:grid-cols-3">
-        <div className="bg-white border-r border-gray-200 dark:bg-gray-900 dark:border-gray-700 lg:col-span-1">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex flex-col">
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+      <div className="min-w-full bg-white border-x border-b border-blue-100 dark:bg-gray-900 dark:border-gray-700 rounded lg:grid lg:grid-cols-3">
+        <div className="bg-blue-50 border-r border-blue-100 dark:bg-gray-900 dark:border-gray-700 lg:col-span-1">
+          <div className="px-4 py-3 border-b border-blue-100 dark:border-gray-700 flex flex-col">
+            <span className="text-sm font-semibold text-blue-950 dark:text-white">
               {agentProfile?.name || currentUser?.email || "Agent"}
             </span>
             <span className="text-xs text-gray-500 dark:text-gray-400">

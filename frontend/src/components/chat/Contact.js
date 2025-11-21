@@ -55,7 +55,7 @@ export default function Contact({ chatRoom, onlineUsersId }) {
           className={`text-[10px] uppercase tracking-wide rounded px-1 py-0.5 ${
             status === "open"
               ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-              : "bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
           }`}
         >
           {status}

@@ -21,11 +21,17 @@ export default function ChatForm(props) {
     setMessage(newMessage);
   };
 
+  const submitMessage = async () => {
+    const trimmed = message.trim();
+    if (!trimmed) return;
+
+    await props.handleFormSubmit(trimmed);
+    setMessage("");
+  };
+
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-
-    props.handleFormSubmit(message);
-    setMessage("");
+    await submitMessage();
   };
 
   const handleFileChange = async (e) => {
@@ -70,14 +76,19 @@ export default function ChatForm(props) {
             />
           </button>
 
-          <input
-            type="text"
+          <textarea
+            rows={1}
             placeholder="Write a message"
-            className="block w-full py-2 pl-4 mx-3 outline-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            className="block w-full py-2 pl-4 mx-3 resize-none outline-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
             name="message"
-            required
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={async (e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                await submitMessage();
+              }
+            }}
           />
           <button type="submit">
             <PaperAirplaneIcon

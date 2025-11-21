@@ -13,19 +13,21 @@ export default function ChatRoom({ currentChat }) {
   const scrollRef = useRef();
 
   useEffect(() => {
+    if (!currentChat?._id) return;
     const fetchData = async () => {
       const res = await getMessagesOfChatRoom(currentChat._id);
       setMessages(res);
     };
 
     fetchData();
-  }, [currentChat._id]);
+  }, [currentChat?._id]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
+    if (!currentChat?._id) return;
     // Subscribe to new messages for this conversation
     const channel = supabase
       .channel("chat-messages")
@@ -38,6 +40,7 @@ export default function ChatRoom({ currentChat }) {
           filter: `conversation_id=eq.${currentChat._id}`,
         },
         (payload) => {
+          console.log("NEW MESSAGE FROM SUPABASE", payload);
           const m = payload.new;
           setMessages((prev) => [
             ...prev,
@@ -54,7 +57,7 @@ export default function ChatRoom({ currentChat }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentChat._id]);
+  }, [currentChat?._id]);
 
   const handleFormSubmit = async (message) => {
     const res = await sendMessage({ chatRoomId: currentChat._id, message });
@@ -64,11 +67,11 @@ export default function ChatRoom({ currentChat }) {
   return (
     <div className="lg:col-span-2 lg:block">
       <div className="w-full">
-        <div className="p-3 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+        <div className="p-3 bg-blue-50 border-b border-blue-100 dark:bg-gray-900 dark:border-gray-700">
           <Contact chatRoom={currentChat} />
         </div>
 
-        <div className="relative w-full p-6 overflow-y-auto h-[30rem] bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+        <div className="relative w-full p-6 overflow-y-auto h-[30rem] bg-white border-b border-blue-100 dark:bg-gray-900 dark:border-gray-700">
           <ul className="space-y-2">
             {messages.map((message, index) => (
               <div key={index} ref={scrollRef}>

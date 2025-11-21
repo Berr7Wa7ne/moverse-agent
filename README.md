@@ -1,65 +1,160 @@
-# Let's Chat
+# Moverse Agent App
 
-A real-time chat application. Another fun side project :)
+A WhatsApp-first agent console for Moverse Technologies.
 
-![Screenshot from 2022-09-07 16-27-25](https://user-images.githubusercontent.com/66206865/188901222-8eefabe5-8ca2-4305-aeb3-3afa37b304b3.png)
+This app lets an internal agent log in, see conversations synced from the WhatsApp Business API (via an external "Agency" service), and reply to customers in a real-time style UI powered by Supabase.
 
-![Screenshot from 2022-09-07 17-11-16](https://user-images.githubusercontent.com/66206865/188900580-01d0d3ca-b242-4f48-99cf-96edeeb5f1db.png)
+The project started from the original **"Let's Chat"** repo, then was refactored to:
 
-GIFs are attached at the end.
+- Use **Supabase** for conversations, messages, and contacts.
+- Integrate with an external **Agency App** / WhatsApp Business API proxy.
+- Keep a simplified **email/password auth** flow.
+- Refresh the **UI** to match Moverse branding.
 
-## Technologies Used
+---
 
-- React and TailwindCSS for the frontend
-- Firebase for authentication
-- Node/Express for creating API endpoints
-- MongoDB for storing chat room members and their messages
-- Socket.io for making the app real-time
+## Tech Stack
 
-## Basic Features
+- **Frontend**: React, TailwindCSS (CRA in `frontend/`)
+- **Auth**: Email/password via the existing `AuthContext` (Firebase or compatible provider)
+- **Data**: Supabase Postgres + Supabase client for:
+  - `conversations` (chat rooms)
+  - `messages` (WhatsApp messages, inbound and outbound)
+  - `contacts` (WhatsApp contacts / customers)
+- **Realtime**: Supabase Realtime on the `messages` table
+- **WhatsApp Integration**: Agent App backend (Node) that proxies to the Agency / WhatsApp Business API and writes into Supabase
 
-- Users can register/login via email and password.
-- Profile page where users can update their avatar and display name.
-- Generate random avatars using [DiceBear API](https://avatars.dicebear.com/docs/http-api)
-- Users can create a room to chat with others.
-- Users can see online status.
-- Search functionality.
-- Chatting is real-time.
-- Emoji picker is also integrated.
-- Dark mode can be enabled.
+There is no longer any MongoDB or Socket.io dependency in the main flow.
 
-## Getting Started
+---
 
-To run this project locally, follow these steps:
+## Main Features
 
-1. Clone the repository.
-2. Install the dependencies:
-   - Navigate to the `frontend` directory and run `npm install`.
-   - Navigate to the `server` directory and run `npm install`.
-3. Set up Firebase:
-   - Go to the [Firebase Console](https://console.firebase.google.com/).
-   - Create a new project or select an existing one.
-   - Go to the project settings or service accounts section.
-   - Click on "Generate new private key" or a similar option.
-   - Save the downloaded JSON file as `serviceAccountKey.json`.
-   - Place the downloaded `serviceAccountKey.json` file in the `server/config` directory.
-4. Set up Environment Variables:
-   - In the `frontend` directory, create a new file named `.env` based on the `.env.example` file.
-   - Update the values of the environment variables in the `.env` file with your Firebase configuration details.
-   - In the root directory, create a new file named `.env` based on the `.env.example` file.
-   - Update the values of the environment variables in the `.env` file according to your preferences. For example, set the `PORT` variable to specify the desired port for the server and set `MONGO_URI` to your MongoDB connection URI.
-5. Run the server:
-   - Navigate to the `server` directory and run `npm run start`.
-6. Run the client:
-   - Navigate to the `frontend` directory and run `npm start`.
-7. The application will be accessible at `http://localhost:3000`.
+- **Agent login** (email + password)
+- **Agent header** branded as *Moverse Technologies*
+- **Sidebar with conversations**
+  - List of WhatsApp conversations from `conversations` / `contacts`
+  - Search across contacts
+  - Blue-accent UI for active chat, unread count, and statuses
+- **Chat room view**
+  - Message history loaded from Supabase `messages`
+  - Realtime updates via Supabase Realtime (new rows on `messages`)
+  - Incoming vs outgoing bubble styles
+  - Emoji picker integration
+  - File upload helper for media messages (uploads to Agent backend then sends a media message)
+- **Profile page** for the current agent
+- **Dark mode** toggle
 
-Please make sure to keep the `serviceAccountKey.json` file and sensitive information secure and not commit them to version control.
+---
 
-## GIFs
+## Project Structure
 
-![chrome-capture-2022-8-7](https://user-images.githubusercontent.com/66206865/188901119-65a05b65-3c76-4c3f-92c5-042d061df8e1.gif)
+- `frontend/`
+  - React app (this is what you run in development)
+  - `src/components/chat` – chat UI (ChatLayout, ChatRoom, Message, AllUsers, etc.)
+  - `src/components/accounts` – Login, Register, Profile
+  - `src/components/layouts` – Header, layout wrappers, error banner
+  - `src/services/ChatService.js` – Supabase queries + Agent backend HTTP calls
+  - `src/contexts/AuthContext.js` – auth handling and current user
+- `server/` (if present)
+  - Agent backend / proxy responsible for:
+    - Handling `/api/sendMessage` and `/api/uploadMedia`
+    - Receiving WhatsApp webhooks from the Agency / Meta
+    - Writing `conversations`, `contacts`, and `messages` into Supabase
 
-![chrome-capture-2022-8-7 (1)](https://user-images.githubusercontent.com/66206865/188900841-2dfe91c2-eb78-4f70-a013-babe0124ee68.gif)
+---
 
-![chrome-capture-2022-8-7 (2)](https://user-images.githubusercontent.com/66206865/188900662-a120aef4-ced1-442b-98dd-ab90b4cea7b5.gif)
+## Getting Started (Dev)
+
+### 1. Clone and install
+
+```bash
+git clone <this-repo-url>
+cd moverse-agent
+
+# frontend
+cd frontend
+npm install
+```
+
+If you are running the backend in this repo, also:
+
+```bash
+cd ../server
+npm install
+```
+
+---
+
+### 2. Configure environment variables
+
+In `frontend/.env` (create it if needed), set:
+
+```bash
+REACT_APP_SUPABASE_URL=your-supabase-url
+REACT_APP_SUPABASE_ANON_KEY=your-supabase-anon-key
+
+# Optional – only if the Agent App is not same-origin
+REACT_APP_AGENT_APP_API_URL=http://localhost:4000
+
+# Optional – Agency app public URL if needed
+REACT_APP_AGENCY_API_URL=https://your-agency-app.example.com
+```
+
+Configure your auth provider (Firebase or equivalent) as required by `AuthContext.js`.
+
+On the backend side (if you run it from this repo), create a root `.env` (or `server/.env`) with:
+
+- Supabase service role key
+- WhatsApp Business / Agency credentials
+- Agent app port, etc.
+
+---
+
+### 3. Supabase schema expectations
+
+The frontend expects at least these tables:
+
+- `contacts`
+  - `id`, `wa_id`, `profile_name`, `profile_picture_url`, `phone_number`
+- `conversations`
+  - `id`, `contact_id`, `status`, `unread_count`, `last_message_at`
+- `messages`
+  - `id`, `conversation_id`, `direction` ("incoming" | "outgoing"), `message`, `sent_at`, plus WhatsApp metadata
+
+Enable **Realtime** on the `messages` table and add it to the `supabase_realtime` publication so new rows stream into the UI.
+
+---
+
+### 4. Run the app
+
+In one terminal:
+
+```bash
+cd frontend
+npm start
+```
+
+This starts the React dev server at `http://localhost:3000`.
+
+If you run the backend locally, start it in another terminal according to its README (usually `npm run dev` or `npm start`).
+
+---
+
+## Usage Flow
+
+1. Open `http://localhost:3000` – you will see the **Login** screen by default.
+2. Log in as an agent.
+3. You are redirected to `/chat`, where you see:
+   - Sidebar with conversations and search.
+   - Main chat panel with message history.
+4. New WhatsApp messages (inserted into `messages`) appear in real time.
+5. Use the text area, emoji picker, and send button to reply.
+
+---
+
+## Notes
+
+- This codebase is tailored to Moverse workflows; it is no longer a generic multi-user public chat.
+- Keep all API keys, Supabase keys, and WhatsApp credentials private and **never** commit them to version control.
+

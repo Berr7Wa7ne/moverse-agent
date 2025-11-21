@@ -17,6 +17,7 @@ function App() {
         <ErrorMessage />
         <Routes>
           <Route exact path="/register" element={<Register />} />
+          <Route exact path="/" element={<Login />} />
           <Route exact path="/login" element={<Login />} />
           <Route
             exact
@@ -29,7 +30,7 @@ function App() {
           />
           <Route
             exact
-            path="/"
+            path="/chat"
             element={
               <WithPrivateRoute>
                 <ChatLayout />

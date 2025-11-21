@@ -14,7 +14,7 @@ export default function Login() {
 
   useEffect(() => {
     if (currentUser) {
-      navigate("/");
+      navigate("/chat");
     }
   }, [currentUser, navigate]);
 
@@ -25,7 +25,7 @@ export default function Login() {
       setError("");
       setLoading(true);
       await login(email, password);
-      navigate("/");
+      navigate("/chat");
     } catch (e) {
       setError("Failed to login");
     }

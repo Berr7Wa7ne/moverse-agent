@@ -25,11 +25,11 @@ export default function UserLayout({ user, onlineUsersId, isOnlineOverride }) {
             />
           </button>
         ) : (
-          <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-200">
+          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-gray-700 flex items-center justify-center text-blue-700 dark:text-gray-200">
             <UserCircleIcon className="h-8 w-8" aria-hidden="true" />
           </div>
         )}
-        <span className="block ml-2 text-gray-500 dark:text-gray-400">
+        <span className="block ml-2 text-blue-700 dark:text-gray-200">
           {user?.displayName}
         </span>
         {isOnline ? (
