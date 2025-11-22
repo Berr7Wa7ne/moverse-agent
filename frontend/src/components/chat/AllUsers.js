@@ -70,6 +70,8 @@ export default function AllUsers({
                 chatRoom={chatRoom}
                 onlineUsersId={onlineUsersId}
                 currentUser={currentUser}
+                showLastMessage
+                showUnread
               />
             </div>
           ))}

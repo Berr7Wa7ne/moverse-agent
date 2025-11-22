@@ -93,7 +93,11 @@ export default function ChatLayout() {
   return (
     <div className="container mx-auto">
       <div className="min-w-full bg-white border-x border-b border-blue-100 dark:bg-gray-900 dark:border-gray-700 rounded lg:grid lg:grid-cols-3">
-        <div className="bg-blue-50 border-r border-blue-100 dark:bg-gray-900 dark:border-gray-700 lg:col-span-1">
+        <div
+          className={`${
+            currentChat ? "hidden lg:block" : "block"
+          } bg-blue-50 border-r border-blue-100 dark:bg-gray-900 dark:border-gray-700 lg:col-span-1`}
+        >
           <div className="px-4 py-3 border-b border-blue-100 dark:border-gray-700 flex flex-col">
             <span className="text-sm font-semibold text-blue-950 dark:text-white">
               {agentProfile?.name || currentUser?.email || "Agent"}
@@ -119,6 +123,7 @@ export default function ChatLayout() {
             currentChat={currentChat}
             currentUser={currentUser}
             socket={socket}
+            onBack={() => setCurrentChat(undefined)}
           />
         ) : (
           <Welcome />

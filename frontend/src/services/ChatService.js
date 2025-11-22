@@ -70,7 +70,9 @@ export const getUser = async (userId) => {
 export const getChatRooms = async (_userId) => {
   const { data, error } = await supabase
     .from("conversations")
-    .select("id, contact_id, status, unread_count, last_message_at, contacts:contact_id(id, wa_id, profile_name, profile_picture_url)")
+    .select(
+      "id, contact_id, status, unread_count, last_message_at, contacts:contact_id(id, wa_id, profile_name, profile_picture_url)"
+    )
     .order("last_message_at", { ascending: false });
 
   console.log("[getChatRooms] data", data);
@@ -81,14 +83,48 @@ export const getChatRooms = async (_userId) => {
     return [];
   }
 
-  return (data || []).map((row) => ({
-    _id: row.id,
-    members: ["self", row.contact_id],
-    status: row.status,
-    unread_count: row.unread_count,
-    last_message_at: row.last_message_at,
-    contact: row.contacts,
-  }));
+  const conversations = data || [];
+
+  if (conversations.length === 0) {
+    return [];
+  }
+
+  // Fetch the latest message per conversation so we can show a preview and
+  // derive a reliable last_message_at that also reflects inbound messages
+  // that may have arrived while the agent was offline.
+  const conversationIds = conversations.map((c) => c.id);
+
+  const { data: allLastMessages, error: lastMsgError } = await supabase
+    .from("messages")
+    .select("conversation_id, message, sent_at")
+    .in("conversation_id", conversationIds)
+    .order("sent_at", { ascending: false });
+
+  if (lastMsgError) {
+    console.error("[getChatRooms] last message fetch error", lastMsgError);
+  }
+
+  const lastMessageByConversation = {};
+  (allLastMessages || []).forEach((m) => {
+    if (!lastMessageByConversation[m.conversation_id]) {
+      lastMessageByConversation[m.conversation_id] = m;
+    }
+  });
+
+  return conversations.map((row) => {
+    const latest = lastMessageByConversation[row.id];
+    const lastMessageAt = latest?.sent_at || row.last_message_at || null;
+
+    return {
+      _id: row.id,
+      members: ["self", row.contact_id],
+      status: row.status,
+      unread_count: row.unread_count,
+      last_message_at: lastMessageAt,
+      last_message: latest?.message || "",
+      contact: row.contacts,
+    };
+  });
 };
 
 // Legacy: get messages of chat room; now messages of conversation

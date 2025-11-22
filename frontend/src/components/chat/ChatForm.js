@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { uploadMedia, sendMediaMessage } from "../../services/ChatService";
 
-import { PaperAirplaneIcon } from "@heroicons/react/solid";
+import { PaperAirplaneIcon, PaperClipIcon } from "@heroicons/react/solid";
 import { EmojiHappyIcon } from "@heroicons/react/outline";
 import Picker from "emoji-picker-react";
 
@@ -60,9 +60,17 @@ export default function ChatForm(props) {
       )}
       <form onSubmit={handleFormSubmit}>
         <div className="flex items-center justify-between w-full p-3 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <label className="mr-2 cursor-pointer">
+          <label className="mr-2 cursor-pointer flex items-center">
             <input type="file" className="hidden" onChange={handleFileChange} disabled={uploading} />
-            <span className="text-sm text-blue-600 dark:text-blue-500">{uploading ? "Uploading..." : "Attach"}</span>
+            <PaperClipIcon
+              className="h-6 w-6 text-blue-600 dark:text-blue-500"
+              aria-hidden="true"
+            />
+            {uploading && (
+              <span className="ml-1 text-xs text-blue-600 dark:text-blue-400">
+                Uploading...
+              </span>
+            )}
           </label>
           <button
             onClick={(e) => {

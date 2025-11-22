@@ -7,7 +7,7 @@ import Message from "./Message";
 import Contact from "./Contact";
 import ChatForm from "./ChatForm";
 
-export default function ChatRoom({ currentChat }) {
+export default function ChatRoom({ currentChat, onBack }) {
   const [messages, setMessages] = useState([]);
 
   const scrollRef = useRef();
@@ -67,8 +67,19 @@ export default function ChatRoom({ currentChat }) {
   return (
     <div className="lg:col-span-2 lg:block">
       <div className="w-full">
-        <div className="p-3 bg-blue-50 border-b border-blue-100 dark:bg-gray-900 dark:border-gray-700">
-          <Contact chatRoom={currentChat} />
+        <div className="p-3 bg-blue-50 border-b border-blue-100 dark:bg-gray-900 dark:border-gray-700 flex items-center">
+          {onBack && (
+            <button
+              type="button"
+              className="mr-2 inline-flex items-center justify-center rounded-full bg-white text-blue-600 border border-blue-200 px-2 py-1 text-xs font-medium shadow-sm lg:hidden"
+              onClick={onBack}
+            >
+              Back
+            </button>
+          )}
+          <div className="flex-1 min-w-0">
+            <Contact chatRoom={currentChat} showLastMessage={false} showUnread={false} />
+          </div>
         </div>
 
         <div className="relative w-full p-6 overflow-y-auto h-[30rem] bg-white border-b border-blue-100 dark:bg-gray-900 dark:border-gray-700">
