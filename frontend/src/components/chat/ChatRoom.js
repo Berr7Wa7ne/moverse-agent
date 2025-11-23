@@ -60,8 +60,7 @@ export default function ChatRoom({ currentChat, onBack }) {
   }, [currentChat?._id]);
 
   const handleFormSubmit = async (message) => {
-    const res = await sendMessage({ chatRoomId: currentChat._id, message });
-    setMessages((prev) => [...prev, res]);
+    await sendMessage({ chatRoomId: currentChat._id, message });
   };
 
   return (
