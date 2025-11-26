@@ -26,10 +26,67 @@ export const uploadMedia = async (file, folder = "uploads") => {
   return res.data;
 };
 
-// Send media message by sending the media URL via Agency sendMessage (text body contains link or caption + link)
-export const sendMediaMessage = async ({ chatRoomId, mediaUrl, caption }) => {
-  const text = caption ? `${caption}\n${mediaUrl}` : mediaUrl;
-  return sendMessage({ chatRoomId, message: text });
+// Send media message via dedicated Agency media endpoint so customers receive
+// a true WhatsApp media message instead of a plain URL.
+export const sendMediaMessage = async ({ chatRoomId, mediaUrl, caption, type }) => {
+  // Ensure we always send a concrete media type. If the caller did not
+  // provide one, infer it from the mediaUrl file extension and default to
+  // "document".
+  let mediaType = type;
+  if (!mediaType) {
+    try {
+      const urlObj = new URL(mediaUrl);
+      const pathname = urlObj.pathname || "";
+      const ext = (pathname.split(".").pop() || "").toLowerCase();
+
+      if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
+        mediaType = "image";
+      } else if (["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) {
+        mediaType = "video";
+      } else if (["mp3", "wav", "ogg", "m4a"].includes(ext)) {
+        mediaType = "audio";
+      } else {
+        mediaType = "document";
+      }
+    } catch (e) {
+      mediaType = "document";
+    }
+  }
+  // Lookup conversation -> contact -> phone_number
+  const { data: conv, error: convErr } = await supabase
+    .from("conversations")
+    .select("id, contact_id, contacts:contact_id(phone_number)")
+    .eq("id", chatRoomId)
+    .maybeSingle();
+
+  if (convErr || !conv) {
+    console.error(convErr || new Error("Conversation not found"));
+    throw convErr || new Error("Conversation not found");
+  }
+
+  const to = conv.contacts?.phone_number || "";
+  if (!to) throw new Error("Contact phone number is missing");
+
+  const url = `${AGENT_APP_BASE_URL}/api/sendMediaMessage`;
+  const payload = {
+    to,
+    type: mediaType,
+    mediaUrl,
+    caption,
+  };
+
+  const res = await axios.post(url, payload, {
+    headers: { "Content-Type": "application/json" },
+  });
+
+  // Optimistically return a message-like object for local UI; message text can
+  // be caption or the media URL, but the actual customer-facing content is
+  // controlled by the Agency media send.
+  return {
+    sender: "self",
+    message: caption || mediaUrl,
+    createdAt: new Date().toISOString(),
+  };
 };
 
 // Map Supabase contact row -> legacy user shape consumed by UI components

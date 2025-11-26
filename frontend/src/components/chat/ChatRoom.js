@@ -6,6 +6,7 @@ import { getMessagesOfChatRoom, sendMessage } from "../../services/ChatService";
 import Message from "./Message";
 import Contact from "./Contact";
 import ChatForm from "./ChatForm";
+import { ChevronRightIcon } from "@heroicons/react/outline";
 
 export default function ChatRoom({ currentChat, onBack }) {
   const [messages, setMessages] = useState([]);
@@ -66,19 +67,23 @@ export default function ChatRoom({ currentChat, onBack }) {
   return (
     <div className="lg:col-span-2 lg:block">
       <div className="w-full">
-        <div className="p-3 bg-blue-50 border-b border-blue-100 dark:bg-gray-900 dark:border-gray-700 flex items-center">
+        <div className="p-3 bg-blue-50 border-b border-blue-100 dark:bg-gray-900 dark:border-gray-700 flex items-center justify-between">
+          <div className="flex-1 min-w-0">
+            <Contact
+              chatRoom={currentChat}
+              showLastMessage={false}
+              showUnread={false}
+            />
+          </div>
           {onBack && (
             <button
               type="button"
-              className="mr-2 inline-flex items-center justify-center rounded-full bg-white text-blue-600 border border-blue-200 px-2 py-1 text-xs font-medium shadow-sm lg:hidden"
+              className="ml-2 inline-flex items-center justify-center rounded-full bg-white text-blue-600 border border-blue-200 p-1 shadow-sm lg:hidden"
               onClick={onBack}
             >
-              Back
+              <ChevronRightIcon className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
-          <div className="flex-1 min-w-0">
-            <Contact chatRoom={currentChat} showLastMessage={false} showUnread={false} />
-          </div>
         </div>
 
         <div className="relative w-full p-6 overflow-y-auto h-[30rem] bg-white border-b border-blue-100 dark:bg-gray-900 dark:border-gray-700">

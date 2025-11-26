@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { getAllUsers, getChatRooms } from "../../services/ChatService";
+import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../contexts/AuthContext";
 
 import ChatRoom from "../chat/ChatRoom";
@@ -35,6 +36,32 @@ export default function ChatLayout() {
     if (currentUser) fetchData();
   }, [currentUser]);
 
+  // Keep chatRooms (last message preview + unread_count) in sync in real time
+  // whenever new messages are inserted.
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel("chat-conversations")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        async () => {
+          const res = await getChatRooms(currentUser.id);
+          setChatRooms(res);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
+
   useEffect(() => {
     const fetchData = async () => {
       const res = await getAllUsers();
@@ -59,6 +86,32 @@ export default function ChatLayout() {
 
   const handleChatChange = (chat) => {
     setCurrentChat(chat);
+
+    if (chat?._id) {
+      // Optimistically clear unread_count in local state
+      setChatRooms((prev) =>
+        prev.map((room) =>
+          room._id === chat._id ? { ...room, unread_count: 0 } : room
+        )
+      );
+
+      setFilteredRooms((prev) =>
+        prev.map((room) =>
+          room._id === chat._id ? { ...room, unread_count: 0 } : room
+        )
+      );
+
+      // Persist read state to Supabase
+      supabase
+        .from("conversations")
+        .update({ unread_count: 0 })
+        .eq("id", chat._id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("Failed to mark conversation as read", error);
+          }
+        });
+    }
   };
 
   const handleSearch = (newSearchQuery) => {

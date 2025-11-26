@@ -5,6 +5,18 @@ function classNames(...classes) {
 }
 
 export default function Message({ message, self }) {
+  // Detect a URL in the message text and treat image URLs specially so that
+  // uploads like Supabase public URLs render as real images instead of raw text.
+  const text = message.message || "";
+
+  const urlMatch = text.match(/https?:\/\/\S+/);
+  const url = urlMatch ? urlMatch[0] : null;
+  const isImageUrl = url
+    ? /\.(png|jpg|jpeg|gif|webp)$/i.test(new URL(url).pathname)
+    : false;
+
+  const caption = url ? text.replace(url, "").trim() : text;
+
   return (
     <>
       <li
@@ -22,7 +34,27 @@ export default function Message({ message, self }) {
               "relative max-w-xl px-4 py-2 rounded-lg shadow"
             )}
           >
-            <span className="block font-normal ">{message.message}</span>
+            {isImageUrl ? (
+              <div className="space-y-1">
+                {caption && (
+                  <span className="block font-normal break-words">{caption}</span>
+                )}
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <img
+                    src={url}
+                    alt={caption || "Image"}
+                    className="mt-1 max-h-64 rounded-lg object-cover border border-gray-200 dark:border-gray-700 bg-white"
+                  />
+                </a>
+              </div>
+            ) : (
+              <span className="block font-normal break-words">{text}</span>
+            )}
           </div>
           <span className="block text-sm text-gray-500 dark:text-gray-400">
             {format(message.createdAt)}
