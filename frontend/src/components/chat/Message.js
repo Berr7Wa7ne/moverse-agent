@@ -5,17 +5,23 @@ function classNames(...classes) {
 }
 
 export default function Message({ message, self }) {
-  // Detect a URL in the message text and treat image URLs specially so that
-  // uploads like Supabase public URLs render as real images instead of raw text.
   const text = message.message || "";
 
-  const urlMatch = text.match(/https?:\/\/\S+/);
+  // Split the message by newlines to handle caption and URL on separate lines
+  const [firstLine, ...restLines] = text.split('\n');
+  const urlMatch = firstLine.match(/https?:\/\/\S+/) || 
+                  (restLines.length > 0 ? restLines[restLines.length - 1].match(/https?:\/\/\S+/) : null);
+  
   const url = urlMatch ? urlMatch[0] : null;
   const isImageUrl = url
-    ? /\.(png|jpg|jpeg|gif|webp)$/i.test(new URL(url).pathname)
+    ? /\.(png|jpg|jpeg|gif|webp|jfif|bmp|tiff|svg)$/i.test(new URL(url).pathname)
     : false;
 
-  const caption = url ? text.replace(url, "").trim() : text;
+  // If we have a URL, the caption is everything except the URL
+  // If no URL, use the entire text as caption
+  const caption = url 
+    ? text.replace(url, "").trim() 
+    : text;
 
   return (
     <>
@@ -49,11 +55,16 @@ export default function Message({ message, self }) {
                     src={url}
                     alt={caption || "Image"}
                     className="mt-1 max-h-64 rounded-lg object-cover border border-gray-200 dark:border-gray-700 bg-white"
+                    onError={(e) => {
+                      // If image fails to load, show a link instead
+                      e.target.style.display = 'none';
+                      e.target.parentNode.innerHTML = `<span class="text-blue-500 underline">${url}</span>`;
+                    }}
                   />
                 </a>
               </div>
             ) : (
-              <span className="block font-normal break-words">{text}</span>
+              <span className="block font-normal break-words whitespace-pre-line">{text}</span>
             )}
           </div>
           <span className="block text-sm text-gray-500 dark:text-gray-400">
