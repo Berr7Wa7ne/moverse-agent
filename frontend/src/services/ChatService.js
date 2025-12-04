@@ -132,11 +132,8 @@ export const getChatRooms = async (_userId) => {
     )
     .order("last_message_at", { ascending: false });
 
-  console.log("[getChatRooms] data", data);
-  console.log("[getChatRooms] error", error);
-
   if (error) {
-    console.error(error);
+    console.error("[getChatRooms] ERROR:", error);
     return [];
   }
 
@@ -151,14 +148,15 @@ export const getChatRooms = async (_userId) => {
   // that may have arrived while the agent was offline.
   const conversationIds = conversations.map((c) => c.id);
 
+  // 🟢 Fetch ALL fields including message_type and caption
   const { data: allLastMessages, error: lastMsgError } = await supabase
     .from("messages")
-    .select("conversation_id, message, sent_at")
+    .select("conversation_id, message, sent_at, message_type, caption")
     .in("conversation_id", conversationIds)
     .order("sent_at", { ascending: false });
 
   if (lastMsgError) {
-    console.error("[getChatRooms] last message fetch error", lastMsgError);
+    console.error("[getChatRooms] Last message fetch ERROR:", lastMsgError);
   }
 
   const lastMessageByConversation = {};
@@ -178,7 +176,11 @@ export const getChatRooms = async (_userId) => {
       status: row.status,
       unread_count: row.unread_count,
       last_message_at: lastMessageAt,
+      // 🟢 Keep the message as-is (could be text or URL)
       last_message: latest?.message || "",
+      // 🟢 Provide type and caption so Contact can display properly
+      last_message_type: latest?.message_type || "text",
+      last_message_caption: latest?.caption || null,
       contact: row.contacts,
     };
   });
@@ -186,10 +188,10 @@ export const getChatRooms = async (_userId) => {
 
 // Legacy: get messages of chat room; now messages of conversation
 export const getMessagesOfChatRoom = async (chatRoomId) => {
-  // Fetch messages
+  // Fetch messages with ALL fields
   const { data: messages, error } = await supabase
     .from("messages")
-    .select("id, conversation_id, direction, message, sent_at")
+    .select("id, conversation_id, direction, message, sent_at, message_type, caption")
     .eq("conversation_id", chatRoomId)
     .order("sent_at", { ascending: true });
 
@@ -198,10 +200,12 @@ export const getMessagesOfChatRoom = async (chatRoomId) => {
     return [];
   }
 
-  // Map to legacy message shape: { sender, message, createdAt }
+  // Map to message shape with ALL information
   return (messages || []).map((m) => ({
     sender: m.direction === "outgoing" ? "self" : "other",
     message: m.message,
+    message_type: m.message_type || "text",
+    caption: m.caption || null,
     createdAt: m.sent_at,
   }));
 };
