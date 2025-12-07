@@ -15,7 +15,13 @@ export default function ChatLayout() {
   const [chatRooms, setChatRooms] = useState([]);
   const [filteredRooms, setFilteredRooms] = useState([]);
 
-  const [currentChat, setCurrentChat] = useState();
+  const [currentChat, setCurrentChat] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedChat = localStorage.getItem('currentChat');
+      return savedChat ? JSON.parse(savedChat) : undefined;
+    }
+    return undefined;
+  });
   const [onlineUsersId, setonlineUsersId] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -39,28 +45,57 @@ export default function ChatLayout() {
   // Keep chatRooms (last message preview + unread_count) in sync in real time
   // whenever new messages are inserted.
   useEffect(() => {
-    if (!currentUser) return;
+  if (!currentUser) return;
 
-    const channel = supabase
-      .channel("chat-conversations")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-        },
-        async () => {
-          const res = await getChatRooms(currentUser.id);
-          setChatRooms(res);
+  const channel = supabase
+    .channel("chat-conversations")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+      },
+      async (payload) => {
+        const res = await getChatRooms(currentUser.id);
+        setChatRooms(res);
+
+        // ✅ Auto clear unread for open chat
+        if (currentChat && payload.new.conversation_id === currentChat._id) {
+          setChatRooms((prev) =>
+            prev.map((room) =>
+              room._id === currentChat._id
+                ? { ...room, unread_count: 0 }
+                : room
+            )
+          );
         }
-      )
-      .subscribe();
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "conversations",
+      },
+      (payload) => {
+        setChatRooms((prev) =>
+          prev.map((room) =>
+            room._id === payload.new.id
+              ? { ...room, ...payload.new }
+              : room
+          )
+        );
+      }
+    )
+    .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentUser]);
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [currentUser, currentChat]);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,35 +119,34 @@ export default function ChatLayout() {
     }
   }, [isContact]);
 
-  const handleChatChange = (chat) => {
-    setCurrentChat(chat);
+  const handleChatChange = async (chat) => {
+  setCurrentChat(chat);
+  if (typeof window !== "undefined") {
+    localStorage.setItem("currentChat", JSON.stringify(chat));
+  }
 
-    if (chat?._id) {
-      // Optimistically clear unread_count in local state
-      setChatRooms((prev) =>
-        prev.map((room) =>
-          room._id === chat._id ? { ...room, unread_count: 0 } : room
-        )
-      );
+  if (chat?._id) {
+    // ✅ Optimistic UI update
+    setChatRooms((prev) =>
+      prev.map((room) =>
+        room._id === chat._id ? { ...room, unread_count: 0 } : room
+      )
+    );
 
-      setFilteredRooms((prev) =>
-        prev.map((room) =>
-          room._id === chat._id ? { ...room, unread_count: 0 } : room
-        )
-      );
-
-      // Persist read state to Supabase
-      supabase
+    try {
+      const { error } = await supabase
         .from("conversations")
         .update({ unread_count: 0 })
-        .eq("id", chat._id)
-        .then(({ error }) => {
-          if (error) {
-            console.error("Failed to mark conversation as read", error);
-          }
-        });
+        .eq("id", chat._id);
+
+      if (error) {
+        console.error("Failed to update unread count", error);
+      }
+    } catch (err) {
+      console.error("Unread update failed", err);
     }
-  };
+  }
+};
 
   const handleSearch = (newSearchQuery) => {
     setSearchQuery(newSearchQuery);

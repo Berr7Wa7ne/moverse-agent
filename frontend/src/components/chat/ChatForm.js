@@ -28,6 +28,20 @@ export default function ChatForm(props) {
     setMessage(prev => prev + emojiObject.emoji);
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitMessage();
+    }
+  };
+
+  const handleInput = (e) => {
+    // Auto-resize textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`; // Max height 200px
+  };
+
   const submitMessage = async () => {
     const trimmed = message.trim();
     const hasText = trimmed.length > 0;

@@ -16,7 +16,7 @@ function formatFileSize(bytes) {
 }
 
 // Video Player Component with Download/Play States
-function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text }) {
+function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text, autoPlay = false }) {
   const [isDownloading, setIsDownloading] = React.useState(true);
   const [hasError, setHasError] = React.useState(false);
   const [isPlaying, setIsPlaying] = React.useState(false);
@@ -24,18 +24,11 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
 
   const handleDownload = () => {
     setIsDownloading(false);
-    if (videoRef.current) {
-      videoRef.current.load();
-    }
+    videoRef.current?.load();
   };
 
-  const handlePlay = () => {
-    setIsPlaying(true);
-  };
-
-  const handlePause = () => {
-    setIsPlaying(false);
-  };
+  const handlePlay = () => setIsPlaying(true);
+  const handlePause = () => setIsPlaying(false);
 
   const handleError = () => {
     setHasError(true);
@@ -50,13 +43,13 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
     return (
       <div className="space-y-2">
         <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-black">
-          <div className="aspect-video w-full relative flex items-center justify-center bg-red-50 dark:bg-red-900/20 p-4">
+          <div className="aspect-video w-full flex items-center justify-center bg-red-50 dark:bg-red-900/20 p-4">
             <div className="text-center">
               <div className="text-red-500 text-2xl mb-2">❌</div>
               <p className="text-red-700 dark:text-red-300 text-sm mb-2">Failed to load video</p>
-              <a 
-                href={mediaUrl} 
-                target="_blank" 
+              <a
+                href={mediaUrl}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
@@ -65,8 +58,8 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
             </div>
           </div>
         </div>
-        {caption && <span className="block font-normal break-words">{caption}</span>}
-        {!caption && text && <span className="block font-normal break-words">{text}</span>}
+        {caption && <span className="block break-words">{caption}</span>}
+        {!caption && text && <span className="block break-words">{text}</span>}
       </div>
     );
   }
@@ -74,24 +67,25 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
   return (
     <div className="space-y-2">
       <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-black">
-        <div className="aspect-video w-full relative group">
+        <div className="aspect-video w-full relative">
+
           {/* Thumbnail */}
           {thumbnailUrl && (
             <img
               src={thumbnailUrl}
               alt="Video thumbnail"
               className={`absolute inset-0 w-full h-full object-cover transition-opacity ${
-                isPlaying ? 'opacity-0' : 'opacity-100'
+                isPlaying ? "opacity-0" : "opacity-100"
               }`}
             />
           )}
 
-          {/* Video Player */}
+          {/* THE VIDEO */}
           <video
             ref={videoRef}
-            className="w-full h-full object-contain relative"
+            className="w-full h-full object-contain"
             controls={!isDownloading}
-            preload="metadata"
+            preload={autoPlay ? "auto" : "metadata"}
             poster={thumbnailUrl || undefined}
             onLoadedData={handleLoadedData}
             onPlay={handlePlay}
@@ -99,68 +93,57 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
             onError={handleError}
           >
             <source src={mediaUrl} type={mimeType} />
-            Your browser does not support the video tag.
           </video>
 
-          {/* Download Button Overlay */}
+          {/* ✅ Folder-style DOWNLOAD overlay */}
           {isDownloading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
               <button
                 onClick={handleDownload}
-                className="flex flex-col items-center space-y-2 p-4 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                className="flex flex-col items-center space-y-2 p-4 rounded-xl bg-white/10 hover:bg-white/20 transition"
               >
-                <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
-                  <svg 
-                    className="w-8 h-8 text-gray-800" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
+                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
+                  <svg
+                    className="w-8 h-8 text-gray-800"
+                    fill="none"
+                    viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" 
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-4-4m4 4l4-4"
                     />
                   </svg>
                 </div>
+
                 <span className="text-white text-sm font-medium">
-                  {fileSize ? formatFileSize(fileSize) : 'Download'}
+                  {fileSize ? `Download (${formatFileSize(fileSize)})` : "Download video"}
                 </span>
               </button>
             </div>
           )}
 
-          {/* Play Button Overlay (when paused after download) */}
-          {!isDownloading && !isPlaying && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                <svg 
-                  className="w-8 h-8 text-white ml-1" 
-                  fill="currentColor" 
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                </svg>
-              </div>
-            </div>
-          )}
-
-          {/* File size indicator */}
+          {/* ✅ File size badge */}
           {fileSize && !isDownloading && (
-            <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
+            <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
               {formatFileSize(fileSize)}
             </div>
           )}
+
         </div>
       </div>
-      
-      {/* Caption or text */}
-      {caption && <span className="block font-normal break-words">{caption}</span>}
-      {!caption && text && <span className="block font-normal break-words">{text}</span>}
+
+      {/* ✅ NO MORE RAW URL SHOWING */}
+      {caption && <span className="block break-words">{caption}</span>}
+      {!caption && text && !text.includes("http") && (
+        <span className="block break-words">{text}</span>
+      )}
     </div>
   );
 }
+
 
 // Helper function to get file icon based on extension
 function getFileIcon(fileName) {

@@ -3,6 +3,9 @@ import { useState, useEffect } from "react";
 import { createChatRoom } from "../../services/ChatService";
 import Contact from "./Contact";
 import UserLayout from "../layouts/UserLayout";
+import { supabase } from "../../lib/supabaseClient";
+import { getChatRooms } from "../../services/ChatService";
+
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -19,6 +22,28 @@ export default function AllUsers({
   const [selectedChat, setSelectedChat] = useState();
   const [nonContacts, setNonContacts] = useState([]);
   const [contactIds, setContactIds] = useState([]);
+
+  useEffect(() => {
+  const channel = supabase
+    .channel("sidebar-unread-updates")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+      },
+      async () => {
+        const updatedRooms = await getChatRooms(currentUser?.id);
+        setChatRooms(updatedRooms);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [currentUser?.id, setChatRooms]);
 
   useEffect(() => {
     const Ids = chatRooms.map((chatRoom) => {
