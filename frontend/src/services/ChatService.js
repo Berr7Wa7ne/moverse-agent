@@ -26,32 +26,54 @@ export const uploadMedia = async (file, folder = "uploads") => {
   return res.data;
 };
 
-// Send media message via dedicated Agency media endpoint so customers receive
-// a true WhatsApp media message instead of a plain URL.
-export const sendMediaMessage = async ({ chatRoomId, mediaUrl, caption, type }) => {
+// 🟢 ENHANCED: Send media message with filename, fileSize, mimeType support
+export const sendMediaMessage = async ({ 
+  chatRoomId, 
+  mediaUrl, 
+  caption, 
+  type,
+  fileName,
+  fileSize,
+  mimeType 
+}) => {
   // Ensure we always send a concrete media type. If the caller did not
-  // provide one, infer it from the mediaUrl file extension and default to
-  // "document".
+  // provide one, infer it from mimeType or mediaUrl file extension.
   let mediaType = type;
+  
   if (!mediaType) {
-    try {
-      const urlObj = new URL(mediaUrl);
-      const pathname = urlObj.pathname || "";
-      const ext = (pathname.split(".").pop() || "").toLowerCase();
-
-      if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
-        mediaType = "image";
-      } else if (["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) {
-        mediaType = "video";
-      } else if (["mp3", "wav", "ogg", "m4a"].includes(ext)) {
-        mediaType = "audio";
+    // First, try to detect from mimeType if provided
+    if (mimeType) {
+      if (mimeType.startsWith('image/')) {
+        mediaType = 'image';
+      } else if (mimeType.startsWith('video/')) {
+        mediaType = 'video';
+      } else if (mimeType.startsWith('audio/')) {
+        mediaType = 'audio';
       } else {
+        mediaType = 'document';
+      }
+    } else {
+      // Fallback: detect from URL extension
+      try {
+        const urlObj = new URL(mediaUrl);
+        const pathname = urlObj.pathname || "";
+        const ext = (pathname.split(".").pop() || "").toLowerCase();
+
+        if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
+          mediaType = "image";
+        } else if (["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) {
+          mediaType = "video";
+        } else if (["mp3", "wav", "ogg", "m4a"].includes(ext)) {
+          mediaType = "audio";
+        } else {
+          mediaType = "document";
+        }
+      } catch (e) {
         mediaType = "document";
       }
-    } catch (e) {
-      mediaType = "document";
     }
   }
+
   // Lookup conversation -> contact -> phone_number
   const { data: conv, error: convErr } = await supabase
     .from("conversations")
@@ -68,23 +90,36 @@ export const sendMediaMessage = async ({ chatRoomId, mediaUrl, caption, type }) 
   if (!to) throw new Error("Contact phone number is missing");
 
   const url = `${AGENT_APP_BASE_URL}/api/sendMediaMessage`;
+  
+  // 🟢 ENHANCED: Include fileName, fileSize, mimeType in payload
   const payload = {
     to,
     type: mediaType,
     mediaUrl,
     caption,
+    fileName: fileName || null,      // 🟢 NEW
+    fileSize: fileSize || null,      // 🟢 NEW
+    mimeType: mimeType || null,      // 🟢 NEW
   };
+
+  console.log('[ChatService] Sending media message:', payload);
 
   const res = await axios.post(url, payload, {
     headers: { "Content-Type": "application/json" },
   });
 
-  // Optimistically return a message-like object for local UI; message text can
-  // be caption or the media URL, but the actual customer-facing content is
-  // controlled by the Agency media send.
+  // 🟢 FIXED: Return complete message object with filename metadata for UI display
   return {
     sender: "self",
     message: caption || mediaUrl,
+    message_type: mediaType,
+    messageType: mediaType,      // Both formats for compatibility
+    caption: caption || null,
+    media_url: mediaUrl,
+    mediaUrl: mediaUrl,           // Both formats for compatibility
+    file_name: fileName,          // 🟢 Include filename for UI
+    file_size: fileSize,          // 🟢 Include file size for UI
+    mime_type: mimeType,          // 🟢 Include MIME type for UI
     createdAt: new Date().toISOString(),
   };
 };
@@ -148,10 +183,10 @@ export const getChatRooms = async (_userId) => {
   // that may have arrived while the agent was offline.
   const conversationIds = conversations.map((c) => c.id);
 
-  // 🟢 Fetch ALL fields including message_type and caption
+  // 🟢 Fetch ALL fields including message_type, caption, file_name
   const { data: allLastMessages, error: lastMsgError } = await supabase
     .from("messages")
-    .select("conversation_id, message, sent_at, message_type, caption")
+    .select("conversation_id, message, sent_at, message_type, caption, file_name, media_url")
     .in("conversation_id", conversationIds)
     .order("sent_at", { ascending: false });
 
@@ -178,9 +213,11 @@ export const getChatRooms = async (_userId) => {
       last_message_at: lastMessageAt,
       // 🟢 Keep the message as-is (could be text or URL)
       last_message: latest?.message || "",
-      // 🟢 Provide type and caption so Contact can display properly
+      // 🟢 Provide type, caption, and file_name so Contact can display properly
       last_message_type: latest?.message_type || "text",
       last_message_caption: latest?.caption || null,
+      last_message_file_name: latest?.file_name || null,
+      media_url: latest?.media_url || null,
       contact: row.contacts,
     };
   });
@@ -188,10 +225,23 @@ export const getChatRooms = async (_userId) => {
 
 // Legacy: get messages of chat room; now messages of conversation
 export const getMessagesOfChatRoom = async (chatRoomId) => {
-  // Fetch messages with ALL fields
+  // 🟢 Fetch messages with ALL fields including file_name, file_size, mime_type, media_url
   const { data: messages, error } = await supabase
     .from("messages")
-    .select("id, conversation_id, direction, message, sent_at, message_type, caption")
+    .select(`
+      id, 
+      conversation_id, 
+      direction, 
+      message, 
+      sent_at, 
+      message_type, 
+      caption,
+      file_name,
+      file_size,
+      mime_type,
+      media_url,
+      thumbnail_url
+    `)
     .eq("conversation_id", chatRoomId)
     .order("sent_at", { ascending: true });
 
@@ -200,12 +250,19 @@ export const getMessagesOfChatRoom = async (chatRoomId) => {
     return [];
   }
 
-  // Map to message shape with ALL information
+  // 🟢 Map to message shape with ALL information including metadata
   return (messages || []).map((m) => ({
     sender: m.direction === "outgoing" ? "self" : "other",
     message: m.message,
     message_type: m.message_type || "text",
+    messageType: m.message_type || "text",  // Add both formats for compatibility
     caption: m.caption || null,
+    file_name: m.file_name || null,
+    file_size: m.file_size || null,
+    mime_type: m.mime_type || null,
+    media_url: m.media_url || null,
+    mediaUrl: m.media_url || null,  // Add both formats for compatibility
+    thumbnail_url: m.thumbnail_url || null,
     createdAt: m.sent_at,
   }));
 };
@@ -246,6 +303,7 @@ export const sendMessage = async ({ chatRoomId, message }) => {
   return {
     sender: "self",
     message,
+    message_type: "text",
     createdAt: new Date().toISOString(),
   };
 };

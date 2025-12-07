@@ -52,14 +52,21 @@ export default function ChatRoom({ currentChat, onBack }) {
           console.log("[ChatRoom] NEW MESSAGE FROM SUPABASE:", payload);
           const m = payload.new;
           
-          // 🟢 FIX: Include message_type and caption in real-time updates
+          // 🟢 ENHANCED: Include ALL metadata fields for complete message display
           setMessages((prev) => [
             ...prev,
             {
               sender: m.direction === "outgoing" ? "self" : "other",
               message: m.message,
               message_type: m.message_type || "text",
+              messageType: m.message_type || "text",      // Both formats for compatibility
               caption: m.caption || null,
+              media_url: m.media_url || null,
+              mediaUrl: m.media_url || null,              // Both formats for compatibility
+              file_name: m.file_name || null,             // 🟢 NEW - Original filename
+              file_size: m.file_size || null,             // 🟢 NEW - File size
+              mime_type: m.mime_type || null,             // 🟢 NEW - MIME type
+              thumbnail_url: m.thumbnail_url || null,     // 🟢 NEW - Video thumbnail
               createdAt: m.sent_at,
             },
           ]);
@@ -75,12 +82,25 @@ export default function ChatRoom({ currentChat, onBack }) {
     };
   }, [currentChat?._id]);
 
+  // 🟢 ENHANCED: Handle text message submission
   const handleFormSubmit = async (message) => {
     try {
-      console.log("[ChatRoom] Sending message:", message);
-      await sendMessage({ chatRoomId: currentChat._id, message });
+      console.log("[ChatRoom] Sending text message:", message);
+      
+      // Send the message
+      const sentMessage = await sendMessage({ 
+        chatRoomId: currentChat._id, 
+        message 
+      });
+      
+      // 🟢 Add optimistic message to UI immediately
+      // Note: Real-time subscription will also add it, but this makes it instant
+      setMessages((prev) => [...prev, sentMessage]);
+      
+      console.log("[ChatRoom] ✅ Message sent successfully");
     } catch (error) {
-      console.error("[ChatRoom] Error sending message:", error);
+      console.error("[ChatRoom] ❌ Error sending message:", error);
+      // Optionally show error toast to user
     }
   };
 
@@ -125,7 +145,11 @@ export default function ChatRoom({ currentChat, onBack }) {
           )}
         </div>
 
-        <ChatForm handleFormSubmit={handleFormSubmit} chatRoomId={currentChat._id} />
+        <ChatForm 
+          handleFormSubmit={handleFormSubmit} 
+          chatRoomId={currentChat._id}
+          currentChatId={currentChat._id}  // 🟢 Pass this for media messages
+        />
       </div>
     </div>
   );

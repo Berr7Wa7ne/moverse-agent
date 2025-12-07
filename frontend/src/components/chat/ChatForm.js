@@ -36,19 +36,42 @@ export default function ChatForm(props) {
 
     try {
       if (pendingMedia?.mediaUrl) {
-        await sendMediaMessage({
+        console.log('[ChatForm] 📤 Sending media message with metadata:', {
+          fileName: pendingMedia.fileName,
+          fileSize: pendingMedia.fileSize,
+          mimeType: pendingMedia.mimeType,
+          type: pendingMedia.type
+        });
+
+        // 🟢 ENHANCED: Send media with all metadata
+        const sentMessage = await sendMediaMessage({
           chatRoomId: props.currentChatId || props.chatRoomId,
           mediaUrl: pendingMedia.mediaUrl,
           caption: hasText ? trimmed : undefined,
+          fileName: pendingMedia.fileName,        // 🟢 Original filename
+          fileSize: pendingMedia.fileSize,        // 🟢 File size
+          mimeType: pendingMedia.mimeType,        // 🟢 MIME type
+          type: pendingMedia.type,                // 🟢 Media type
         });
+
+        console.log('[ChatForm] ✅ Media sent, returned message:', sentMessage);
+
+        // 🟢 OPTIONAL: If you want to add optimistic message to parent's state
+        // You can call a callback prop here:
+        // if (props.onMessageSent) {
+        //   props.onMessageSent(sentMessage);
+        // }
+
       } else if (hasText) {
-        await props.handleFormSubmit(trimmed);
+        const sentMessage = await props.handleFormSubmit(trimmed);
+        console.log('[ChatForm] ✅ Text sent:', sentMessage);
       }
 
       setMessage("");
       setPendingMedia(null);
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("[ChatForm] ❌ Error sending message:", error);
+      // Optionally show error toast to user
     }
   };
 
