@@ -15,12 +15,13 @@ function App() {
       <Router>
         <Header />
         <ErrorMessage />
+
         <Routes>
-          <Route exact path="/register" element={<Register />} />
-          <Route exact path="/" element={<Login />} />
-          <Route exact path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} />
+
           <Route
-            exact
             path="/profile"
             element={
               <WithPrivateRoute>
@@ -28,8 +29,8 @@ function App() {
               </WithPrivateRoute>
             }
           />
+
           <Route
-            exact
             path="/chat"
             element={
               <WithPrivateRoute>
