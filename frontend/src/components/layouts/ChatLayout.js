@@ -202,6 +202,7 @@ export default function ChatLayout() {
             onlineUsersId={onlineUsersId}
             currentUser={currentUser}
             changeChat={handleChatChange}
+            currentChat={currentChat}
           />
         </div>
 
@@ -211,6 +212,7 @@ export default function ChatLayout() {
             currentUser={currentUser}
             socket={socket}
             onBack={() => setCurrentChat(undefined)}
+            setChatRooms={setChatRooms} 
           />
         ) : (
           <Welcome />

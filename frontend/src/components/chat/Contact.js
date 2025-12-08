@@ -16,6 +16,7 @@ export default function Contact({
   onlineUsersId,
   showLastMessage,
   showUnread = true,
+  isCurrentChat = false, // 🆕 Add this prop
 }) {
   const [contact, setContact] = useState();
 
@@ -107,8 +108,8 @@ export default function Contact({
         )}
       </div>
 
-      {/* ✅ Clean unread badge */}
-      {showUnread && unread > 0 && (
+      {/* ✅ Hide badge if current chat is open */}
+      {showUnread && unread > 0 && !isCurrentChat && (
         <div className="flex flex-col items-end ml-2">
           <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-blue-600 rounded-full dark:bg-blue-500">
             {unread > 9 ? "9+" : unread}

@@ -1,4 +1,3 @@
-// Message.js (updated with document and video improvements)
 import { format } from "timeago.js";
 import React from "react";
 
@@ -29,15 +28,11 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
 
   const handlePlay = () => setIsPlaying(true);
   const handlePause = () => setIsPlaying(false);
-
   const handleError = () => {
     setHasError(true);
     setIsDownloading(false);
   };
-
-  const handleLoadedData = () => {
-    setIsDownloading(false);
-  };
+  const handleLoadedData = () => setIsDownloading(false);
 
   if (hasError) {
     return (
@@ -68,8 +63,6 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
     <div className="space-y-2">
       <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-black">
         <div className="aspect-video w-full relative">
-
-          {/* Thumbnail */}
           {thumbnailUrl && (
             <img
               src={thumbnailUrl}
@@ -79,8 +72,6 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
               }`}
             />
           )}
-
-          {/* THE VIDEO */}
           <video
             ref={videoRef}
             className="w-full h-full object-contain"
@@ -94,8 +85,6 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
           >
             <source src={mediaUrl} type={mimeType} />
           </video>
-
-          {/* ✅ Folder-style DOWNLOAD overlay */}
           {isDownloading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
               <button
@@ -113,29 +102,23 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-4-4m4 4l4-4"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                     />
                   </svg>
                 </div>
-
                 <span className="text-white text-sm font-medium">
                   {fileSize ? `Download (${formatFileSize(fileSize)})` : "Download video"}
                 </span>
               </button>
             </div>
           )}
-
-          {/* ✅ File size badge */}
           {fileSize && !isDownloading && (
             <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
               {formatFileSize(fileSize)}
             </div>
           )}
-
         </div>
       </div>
-
-      {/* ✅ NO MORE RAW URL SHOWING */}
       {caption && <span className="block break-words">{caption}</span>}
       {!caption && text && !text.includes("http") && (
         <span className="block break-words">{text}</span>
@@ -143,7 +126,6 @@ function VideoPlayer({ mediaUrl, thumbnailUrl, mimeType, fileSize, caption, text
     </div>
   );
 }
-
 
 // Helper function to get file icon based on extension
 function getFileIcon(fileName) {
@@ -250,27 +232,39 @@ function getFileIcon(fileName) {
 
 // Helper function to clean up and display filename properly
 function getDisplayFileName(message, mediaUrl) {
-  // Priority: file_name from backend > original filename from message > URL parsing
-  let fileName = message.file_name || message.filename || message.original_filename;
+  const possibleNameFields = [
+    'file_name', 
+    'filename', 
+    'original_filename', 
+    'name',
+    'originalName'
+  ];
   
-  if (!fileName && mediaUrl) {
-    // Extract from URL
-    fileName = mediaUrl.split('/').pop();
+  for (const field of possibleNameFields) {
+    if (message[field]) {
+      return message[field];
+    }
   }
-  
+
+  let fileName = '';
+  if (mediaUrl) {
+    try {
+      const url = new URL(mediaUrl);
+      const pathParts = url.pathname.split('/');
+      fileName = pathParts[pathParts.length - 1];
+    } catch (e) {
+      const parts = mediaUrl.split('/');
+      fileName = parts[parts.length - 1].split('?')[0];
+    }
+  }
+
   if (!fileName) return 'Document';
-  
-  // Remove URL encoding
+
   fileName = decodeURIComponent(fileName);
-  
-  // If filename has timestamp prefix (e.g., "1764881149965-filename.docx"), clean it
-  const timestampMatch = fileName.match(/^\d{13,}-(.+)$/);
-  if (timestampMatch) {
-    fileName = timestampMatch[1];
-  }
-  
-  // Handle ugly MIME type extensions (e.g., ".vnd.openxmlformats-officedocument.wordprocessingml.document")
-  const uglyExtensions = {
+  fileName = fileName.replace(/^\d{13,}-/, '');
+  fileName = fileName.split('?')[0];
+
+  const extensionMap = {
     'vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
     'vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
     'vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
@@ -278,19 +272,21 @@ function getDisplayFileName(message, mediaUrl) {
     'vnd.ms-powerpoint': 'ppt',
     'msword': 'doc',
   };
-  
-  // Replace ugly extensions
-  for (const [ugly, clean] of Object.entries(uglyExtensions)) {
-    if (fileName.includes(ugly)) {
-      fileName = fileName.replace(new RegExp(`\\.${ugly.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`), `.${clean}`);
+
+  if (!fileName.match(/\.\w+$/) || fileName.endsWith('.bin')) {
+    for (const [ugly, clean] of Object.entries(extensionMap)) {
+      if (fileName.includes(ugly)) {
+        const baseName = fileName.split('.')[0];
+        fileName = `${baseName}.${clean}`;
+        break;
+      }
     }
   }
-  
+
   return fileName;
 }
 
 export default function Message({ message, self }) {
-  // Normalize fields: backend may send text in message (legacy) or text property
   const messageType = message.message_type || message.messageType || "text";
   const text = message.text ?? message.message ?? "";
   const mediaUrl = message.media_url ?? message.mediaUrl ?? null;
@@ -300,7 +296,6 @@ export default function Message({ message, self }) {
     // IMAGE
     if (messageType === "image") {
       if (!mediaUrl) {
-        // legacy: maybe url in text
         const urlMatch = (text || "").match(/https?:\/\/\S+/);
         if (urlMatch) {
           return renderLegacyImage(urlMatch[0], text.replace(urlMatch[0], "").trim());
@@ -331,7 +326,7 @@ export default function Message({ message, self }) {
       );
     }
 
-    // VIDEO - ENHANCED WITH DOWNLOAD STATE
+    // VIDEO
     if (messageType === "video") {
       if (!mediaUrl) {
         return (
@@ -379,7 +374,7 @@ export default function Message({ message, self }) {
       );
     }
 
-    // DOCUMENT - ENHANCED
+    // DOCUMENT
     if (messageType === "document") {
       const urlToUse = mediaUrl || (text.match(/https?:\/\/\S+/) || [null])[0];
       if (!urlToUse) return <span className="text-sm text-gray-500">[Document unavailable]</span>;
@@ -439,7 +434,7 @@ export default function Message({ message, self }) {
       );
     }
 
-    // CONTACT / STICKER / FALLBACK (keep simple)
+    // CONTACT / STICKER / FALLBACK
     if (messageType === "contact") {
       return (
         <div className="space-y-2">
@@ -451,21 +446,28 @@ export default function Message({ message, self }) {
         </div>
       );
     }
+
     if (messageType === "sticker") {
       const urlToUse = mediaUrl || (text.match(/https?:\/\/\S+/) || [null])[0];
-      if (urlToUse)
+      if (urlToUse) {
         return (
           <div className="space-y-2">
-            <img src={urlToUse} alt="Sticker" className="max-h-32 w-auto" onError={(e) => {
-              e.target.style.display = 'none';
-              const errorDiv = document.createElement("div");
-              errorDiv.className = "text-sm";
-              errorDiv.textContent = "🟩 Sticker";
-              e.target.parentNode.appendChild(errorDiv);
-            }} />
+            <img 
+              src={urlToUse} 
+              alt="Sticker" 
+              className="max-h-32 w-auto" 
+              onError={(e) => {
+                e.target.style.display = 'none';
+                const errorDiv = document.createElement("div");
+                errorDiv.className = "text-sm";
+                errorDiv.textContent = "🟩 Sticker";
+                e.target.parentNode.appendChild(errorDiv);
+              }} 
+            />
             {caption && <span className="block font-normal break-words text-sm">{caption}</span>}
           </div>
         );
+      }
       return <span className="text-sm text-gray-500">[Sticker]</span>;
     }
 
@@ -473,12 +475,16 @@ export default function Message({ message, self }) {
     const legacyUrlMatch = (text || "").match(/https?:\/\/\S+/);
     const legacyUrl = legacyUrlMatch ? legacyUrlMatch[0] : null;
     const isLegacyImage = legacyUrl ? /\.(png|jpg|jpeg|gif|webp|jfif|bmp|tiff|svg)$/i.test(legacyUrl) : false;
+    
     if (isLegacyImage) {
       const textCaption = text.replace(legacyUrl, "").trim();
       return (
         <div className="space-y-2">
           <a href={legacyUrl} target="_blank" rel="noopener noreferrer" className="block">
-            <img src={legacyUrl} alt={textCaption || "Image"} className="max-h-64 w-full rounded-lg object-cover border border-gray-200 dark:border-gray-700 bg-white"
+            <img 
+              src={legacyUrl} 
+              alt={textCaption || "Image"} 
+              className="max-h-64 w-full rounded-lg object-cover border border-gray-200 dark:border-gray-700 bg-white"
               onError={(e) => {
                 e.target.style.display = 'none';
                 const link = document.createElement('a');
@@ -487,7 +493,8 @@ export default function Message({ message, self }) {
                 link.className = 'text-blue-300 underline text-sm';
                 link.textContent = legacyUrl;
                 e.target.parentNode.appendChild(link);
-              }} />
+              }} 
+            />
           </a>
           {textCaption && <span className="block font-normal break-words">{textCaption}</span>}
         </div>
@@ -498,19 +505,23 @@ export default function Message({ message, self }) {
     return <span className="block font-normal break-words whitespace-pre-line">{text}</span>;
   };
 
-  // helper for legacy image render
+  // Helper for legacy image render
   function renderLegacyImage(url, textCaption) {
     return (
       <div className="space-y-2">
         <a href={url} target="_blank" rel="noopener noreferrer" className="block">
-          <img src={url} alt={textCaption || "Image"} className="max-h-64 w-full rounded-lg object-cover border border-gray-200 dark:border-gray-700 bg-white"
+          <img 
+            src={url} 
+            alt={textCaption || "Image"} 
+            className="max-h-64 w-full rounded-lg object-cover border border-gray-200 dark:border-gray-700 bg-white"
             onError={(e) => {
               e.target.style.display = 'none';
               const errorDiv = document.createElement("div");
               errorDiv.className = "text-red-500 text-sm p-2";
               errorDiv.textContent = "❌ Failed to load image";
               e.target.parentNode.appendChild(errorDiv);
-            }} />
+            }} 
+          />
         </a>
         {textCaption && <span className="block font-normal break-words">{textCaption}</span>}
       </div>
@@ -518,18 +529,19 @@ export default function Message({ message, self }) {
   }
 
   return (
-    <li className={classNames(self !== message.sender ? "justify-start" : "justify-end", "flex")}>
-      <div>
-        <div className={classNames(
-          self !== message.sender
-            ? "text-gray-700 dark:text-gray-300 bg-blue-50 border border-blue-100 shadow-md dark:bg-gray-900 dark:border-gray-700"
-            : "bg-blue-600 dark:bg-blue-500 text-white",
-          "relative max-w-xl px-4 py-2 rounded-lg shadow"
-        )}>
-          {renderMessageContent()}
+    <div className={`flex ${self ? 'justify-end' : 'justify-start'} mb-2`}>
+      <div 
+        className={`max-w-[80%] px-4 py-2 rounded-lg ${
+          self 
+            ? 'bg-blue-600 text-white rounded-br-none' 
+            : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-none'
+        }`}
+      >
+        {renderMessageContent()}
+        <div className="text-xs mt-1 opacity-75">
+          {format(message.createdAt || new Date())}
         </div>
-        <span className="block text-sm text-gray-500 dark:text-gray-400">{format(message.createdAt)}</span>
       </div>
-    </li>
+    </div>
   );
 }

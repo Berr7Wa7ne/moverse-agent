@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
-
 import { createChatRoom } from "../../services/ChatService";
 import Contact from "./Contact";
 import UserLayout from "../layouts/UserLayout";
 import { supabase } from "../../lib/supabaseClient";
 import { getChatRooms } from "../../services/ChatService";
-
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -18,32 +16,43 @@ export default function AllUsers({
   onlineUsersId,
   currentUser,
   changeChat,
+  currentChat, // 🆕 Add this prop
 }) {
   const [selectedChat, setSelectedChat] = useState();
   const [nonContacts, setNonContacts] = useState([]);
   const [contactIds, setContactIds] = useState([]);
 
   useEffect(() => {
-  const channel = supabase
-    .channel("sidebar-unread-updates")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-      },
-      async () => {
-        const updatedRooms = await getChatRooms(currentUser?.id);
-        setChatRooms(updatedRooms);
-      }
-    )
-    .subscribe();
+    const channel = supabase
+      .channel("sidebar-unread-updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        async () => {
+          const updatedRooms = await getChatRooms(currentUser?.id);
+          
+          // 🆕 Preserve unread_count: 0 for currently open chat
+          setChatRooms(prevRooms => {
+            return updatedRooms.map(newRoom => {
+              // If this is the currently open chat, keep unread_count at 0
+              if (currentChat?._id === newRoom._id) {
+                return { ...newRoom, unread_count: 0 };
+              }
+              return newRoom;
+            });
+          });
+        }
+      )
+      .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [currentUser?.id, setChatRooms]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser?.id, setChatRooms, currentChat?._id]);
 
   useEffect(() => {
     const Ids = chatRooms.map((chatRoom) => {
@@ -97,13 +106,11 @@ export default function AllUsers({
                 currentUser={currentUser}
                 showLastMessage
                 showUnread
+                isCurrentChat={currentChat?._id === chatRoom._id}
               />
             </div>
           ))}
         </li>
-        {/* <h2 className="my-2 mb-2 ml-2 text-gray-900 dark:text-white">
-          Other Users
-        </h2> */}
         <li>
           {nonContacts.map((nonContact, index) => (
             <div
